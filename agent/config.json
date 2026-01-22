@@ -1,0 +1,126 @@
+{
+    "agent": {
+        "name": "ubuntu-agent-01",
+        "server_url": "http://localhost:5000/api/events",
+        "scan_interval": 60
+    },
+    "file_monitor": {
+        "enabled": true,
+        "monitored_paths": [
+            "/etc/passwd",
+            "/etc/shadow",
+            "/etc/sudoers",
+            "/etc/ssh/sshd_config",
+            "/etc/hosts",
+            "/bin",
+            "/usr/bin"
+        ],
+        "exclude_extensions": [".log", ".tmp", ".swp"],
+        "baseline_file": "data/file_baseline.json"
+    },
+    "auth_monitor": {
+        "enabled": true,
+        "log_files": [
+            "/var/log/auth.log",
+            "/var/log/secure"
+        ],
+        "position_file": "data/auth_log_position.json",
+        "brute_force_threshold": 5,
+        "brute_force_window": 300,
+        "monitor_sudo": true,
+        "monitor_ssh": true,
+        "monitor_user_changes": true,
+        "suspicious_usernames": [
+            "admin",
+            "administrator",
+            "root",
+            "test",
+            "guest",
+            "oracle",
+            "postgres"
+        ]
+    },
+    "process_monitor": {
+        "enabled": true,
+        "baseline_file": "data/process_baseline.json",
+        "cpu_threshold": 80,
+        "memory_threshold": 80,
+        "check_crypto_miners": true,
+        "check_reverse_shells": true,
+        "check_privilege_escalation": true,
+        "whitelist_processes": [
+            "systemd",
+            "sshd",
+            "cron",
+            "apache2",
+            "nginx",
+            "mysql",
+            "postgres"
+        ],
+        "suspicious_process_names": [
+            "nc",
+            "netcat",
+            "ncat",
+            "socat",
+            "msfconsole",
+            "meterpreter",
+            "xmrig",
+            "minerd",
+            "ccminer",
+            "claymore",
+            "ethminer",
+            "phoenix",
+            "nbminer"
+        ],
+        "suspicious_commands": [
+            "bash -i",
+            "/dev/tcp",
+            "/dev/udp",
+            "nc -e",
+            "python -c",
+            "perl -e",
+            "ruby -e",
+            "base64 -d",
+            "wget http",
+            "curl http"
+        ],
+        "suspicious_paths": [
+            "/tmp",
+            "/var/tmp",
+            "/dev/shm",
+            "/home/*/.*"
+        ],
+        "monitor_network_connections": true,
+        "suspicious_ports": [4444, 5555, 6666, 7777, 8888, 9999, 31337, 12345]
+    },
+    "network_monitor": {
+        "enabled": true,
+        "baseline_file": "data/network_baseline.json",
+        "monitor_connections": true,
+        "monitor_listening_ports": true,
+        "monitor_dns_queries": false,
+        "detect_port_scans": true,
+        "port_scan_threshold": 10,
+        "port_scan_window": 60,
+        "connection_rate_threshold": 50,
+        "connection_rate_window": 60,
+        "data_transfer_threshold": 104857600,
+        "suspicious_ports": [
+            21, 23, 25, 69, 135, 139, 445, 1433, 3306, 3389,
+            4444, 5555, 6666, 7777, 8888, 9999, 31337, 12345
+        ],
+        "allowed_outbound_ports": [
+            80, 443, 22, 53, 123, 8080, 8443
+        ],
+        "suspicious_ips": [],
+        "whitelist_ips": [
+            "127.0.0.1",
+            "::1"
+        ],
+        "check_tor_connections": true,
+        "check_proxy_usage": true,
+        "check_tunneling": true,
+        "monitor_unusual_protocols": true,
+        "blacklisted_countries": []
+    }
+}
