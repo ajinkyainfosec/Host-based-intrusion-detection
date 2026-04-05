@@ -322,7 +322,7 @@ This project is licensed under the MIT License — see [LICENSE](LICENSE) for de
 ## 👤 Author
 
 **Ajinkya**
-- GitHub: [@yourusername](https://github.com/ajinkyainfosec)
+- GitHub: [@ajinkyainfosec](https://github.com/ajinkyainfosec)
 
 ---
 
