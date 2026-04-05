@@ -1,0 +1,402 @@
+# rules/sigma/linux_rules.yml
+# Sentinel HIDS — Complete Detection Rules
+# 17 rules (SENT-EVA-003 removed, SENT-PE-001 severity adjusted)
+# ============================================================
+
+# ── RULE 1: Reverse Shell ─────────────────────────────────────
+title: Linux Reverse Shell Detection
+id: SENT-RS-001
+status: stable
+description: |
+  Detects common reverse shell patterns in process command lines.
+severity: critical
+tags:
+  - reverse-shell
+  - c2
+  - execution
+mitre:
+  tactic: Command and Control
+  technique_id: T1059
+  technique_name: Command and Scripting Interpreter
+detection:
+  cmdline_contains:
+    - "bash -i"
+    - "sh -i"
+    - "/dev/tcp/"
+    - "/dev/udp/"
+    - "0>&1"
+    - "2>&1 1>&3"
+    - "mkfifo /tmp/"
+    - "python -c import socket"
+    - "python3 -c import socket"
+    - "perl -e use Socket"
+    - "nc -e /bin/bash"
+    - "ncat -e /bin/bash"
+    - "exec /bin/bash"
+    - "bash -c "bash -i" &"
+---
+# ── RULE 2: Privilege Escalation via Sudo ─────────────────────
+title: Linux Privilege Escalation via Sudo
+id: SENT-PE-001
+status: stable
+description: |
+  Detects privilege escalation attempts using sudo to launch a root shell.
+severity: medium
+tags:
+  - privesc
+  - sudo
+  - t1548
+mitre:
+  tactic: Privilege Escalation
+  technique_id: T1548.003
+  technique_name: Sudo and Sudo Caching
+detection:
+  auth_action:
+    - sudo_command
+  cmdline_contains:
+    - "/bin/bash"
+    - "sudo -i"
+    - "sudo su"
+    - "/bin/sh"
+    - "passwd"
+    - "visudo"
+    - "su -"
+    - "sudo /bin/bash -c "id""
+---
+# ── RULE 3: Rootkit Kernel-Level Detection ────────────────────
+title: Linux Rootkit — Kernel-Level Detection
+id: SENT-RK-001
+status: stable
+description: |
+  Detects rootkit activity from the agent rootkit.rs collector.
+  Covers hidden process, kernel module, hidden port, kallsyms anomaly.
+severity: critical
+tags:
+  - rootkit
+  - defense-evasion
+  - t1014
+mitre:
+  tactic: Defense Evasion
+  technique_id: T1014
+  technique_name: Rootkit
+detection:
+  rootkit_detection_methods: []
+---
+# ── RULE 4: Critical System File Modified ─────────────────────
+title: Critical System File Modified
+id: SENT-FIM-001
+status: stable
+description: |
+  Detects modification of critical Linux system files.
+severity: critical
+tags:
+  - fim
+  - integrity
+  - persistence
+mitre:
+  tactic: Defense Evasion
+  technique_id: T1036
+  technique_name: Masquerading
+detection:
+  file_path_contains:
+    - "/etc/passwd"
+    - "/etc/shadow"
+    - "/etc/hosts"
+    - "/etc/hostname"
+    - "/etc/sudoers"
+    - "/etc/sudoers.d/"
+    - "/etc/ssh/sshd_config"
+    - "/etc/ssh/ssh_config"
+    - "/etc/pam.d/"
+    - "/etc/ld.so.preload"
+    - "/etc/ld.so.conf"
+    - "/usr/bin/sudo"
+    - "/usr/bin/su"
+    - "/lib/x86_64-linux-gnu/libpam"
+    - "/lib64/libpam"
+    - "/boot/grub"
+---
+# ── RULE 5: Persistence via Cron ──────────────────────────────
+title: Persistence via Cron Job
+id: SENT-PERS-001
+status: stable
+description: |
+  Detects creation or modification of cron jobs.
+severity: high
+tags:
+  - persistence
+  - cron
+  - t1053
+mitre:
+  tactic: Persistence
+  technique_id: T1053.003
+  technique_name: Cron
+detection:
+  file_path_contains:
+    - "/var/spool/cron/"
+    - "/etc/cron.d/"
+    - "/etc/crontab"
+    - "/etc/cron.hourly/"
+    - "/etc/cron.daily/"
+    - "/etc/cron.weekly/"
+---
+# ── RULE 6: SSH Brute Force ───────────────────────────────────
+title: SSH Brute Force Attack
+id: SENT-AUTH-001
+status: stable
+description: |
+  Detects brute force attacks against SSH.
+severity: high
+tags:
+  - brute-force
+  - ssh
+  - t1110
+mitre:
+  tactic: Credential Access
+  technique_id: T1110.001
+  technique_name: Password Guessing
+detection:
+  auth_action:
+    - failed_login
+  auth_consecutive: 5
+---
+# ── RULE 7: C2 Suspicious Outbound Connection ─────────────────
+title: C2 Beacon — Suspicious Outbound Connection
+id: SENT-NET-001
+status: stable
+description: |
+  Detects outbound connections to known malicious IPs or unusual ports.
+severity: critical
+tags:
+  - c2
+  - network
+  - t1071
+mitre:
+  tactic: Command and Control
+  technique_id: T1071.001
+  technique_name: Web Protocols
+detection:
+  network_suspicious: true
+---
+# ── RULE 8: New User Account Created ─────────────────────────
+title: Persistence — New User Account Created
+id: SENT-PERS-002
+status: stable
+description: |
+  Detects creation of new user accounts.
+severity: high
+tags:
+  - persistence
+  - account-creation
+  - t1136
+mitre:
+  tactic: Persistence
+  technique_id: T1136.001
+  technique_name: Local Account
+detection:
+  auth_action:
+    - user_added
+---
+# ── RULE 9: Base64 Encoded Execution ─────────────────────────
+title: Defense Evasion — Base64 Encoded Execution
+id: SENT-EVA-001
+status: stable
+description: |
+  Detects execution of base64-encoded payloads.
+severity: high
+tags:
+  - evasion
+  - obfuscation
+  - t1027
+mitre:
+  tactic: Defense Evasion
+  technique_id: T1027
+  technique_name: Obfuscated Files or Information
+detection:
+  cmdline_contains:
+    - "base64 -d"
+    - "base64 --decode"
+    - "echo * | base64"
+    - "|base64"
+    - "eval $(echo"
+    - "eval `echo"
+---
+# ── RULE 10: SSH Authorized Keys Modified ────────────────────
+title: Persistence — SSH Authorized Keys Modified
+id: SENT-PERS-003
+status: stable
+description: |
+  Detects modification of SSH authorized_keys files.
+severity: critical
+tags:
+  - persistence
+  - ssh
+  - t1098
+mitre:
+  tactic: Persistence
+  technique_id: T1098.004
+  technique_name: Account Manipulation SSH Authorized Keys
+detection:
+  auth_action:
+    - ssh_key_added
+---
+# ── RULE 11: Sudo Failed ──────────────────────────────────────
+title: Credential Access — Sudo Authentication Failure
+id: SENT-AUTH-002
+status: stable
+description: |
+  Detects sudo authentication failures — credential probing after access.
+severity: high
+tags:
+  - credential-access
+  - sudo
+  - t1548
+mitre:
+  tactic: Credential Access
+  technique_id: T1548.003
+  technique_name: Sudo and Sudo Caching
+detection:
+  auth_action:
+    - sudo_failed
+---
+# ── RULE 12: Crypto Miner Detected ───────────────────────────
+title: Impact — Cryptocurrency Miner Execution
+id: SENT-IMPACT-001
+status: stable
+description: |
+  Detects known cryptocurrency mining tools running on the system.
+severity: high
+tags:
+  - impact
+  - crypto-miner
+  - t1496
+mitre:
+  tactic: Impact
+  technique_id: T1496
+  technique_name: Resource Hijacking
+detection:
+  cmdline_contains:
+    - "xmrig"
+    - "minerd"
+    - "cpuminer"
+    - "stratum+tcp"
+    - "stratum+ssl"
+    - "pool.supportxmr"
+    - "moneroocean"
+    - "--donate-level"
+---
+# ── RULE 13: Execution from /dev/shm ─────────────────────────
+title: Defense Evasion — Execution from Memory-Mapped Path
+id: SENT-EVA-002
+status: stable
+description: |
+  Detects processes executing from /dev/shm or /run/shm.
+severity: critical
+tags:
+  - defense-evasion
+  - execution
+  - t1036
+mitre:
+  tactic: Defense Evasion
+  technique_id: T1036.005
+  technique_name: Match Legitimate Name or Location
+detection:
+  process_exe_contains:
+    - "/dev/shm/"
+    - "/run/shm/"
+    - "/dev/shm"
+---
+# ── RULE 14: Web Shell Dropped ───────────────────────────────
+title: Persistence — Web Shell Dropped in Web Root
+id: SENT-PERS-004
+status: stable
+description: |
+  Detects creation of web shell files in web server directories.
+severity: critical
+tags:
+  - persistence
+  - web-shell
+  - t1505
+mitre:
+  tactic: Persistence
+  technique_id: T1505.003
+  technique_name: Server Software Component Web Shell
+detection:
+  file_path_contains:
+    - "/var/www/html/"
+    - "/var/www/html/.php"
+    - "/var/www/html/.jsp"
+    - "/var/www/html/.aspx"
+    - "/usr/share/nginx/html/"
+    - "/srv/www/"
+---
+# ── RULE 15: Systemd Persistence ─────────────────────────────
+title: Persistence — Malicious Systemd Service Created
+id: SENT-PERS-005
+status: stable
+description: |
+  Detects creation of new systemd service unit files.
+severity: high
+tags:
+  - persistence
+  - systemd
+  - t1543
+mitre:
+  tactic: Persistence
+  technique_id: T1543.002
+  technique_name: Systemd Service
+detection:
+  file_path_contains:
+    - "/etc/systemd/system/"
+    - "/lib/systemd/system/"
+    - "/usr/lib/systemd/system/"
+    - "/home/.config/systemd/"
+    - "/root/.config/systemd/"
+---
+# ── RULE 16: Tor Network Connection ──────────────────────────
+title: Command and Control — Tor Network Connection
+id: SENT-NET-002
+status: stable
+description: |
+  Detects outbound connections to Tor network ports.
+severity: high
+tags:
+  - c2
+  - tor
+  - network
+  - t1090
+mitre:
+  tactic: Command and Control
+  technique_id: T1090.003
+  technique_name: Multi-hop Proxy
+detection:
+  network_port_in:
+    - 9001
+    - 9050
+    - 9051
+    - 9150
+    - 9151
+---
+# ── RULE 17: IRC C2 Channel ───────────────────────────────────
+title: Command and Control — IRC Bot Communication
+id: SENT-NET-003
+status: stable
+description: |
+  Detects outbound connections to IRC ports used for botnet C2.
+severity: high
+tags:
+  - c2
+  - irc
+  - botnet
+  - t1071
+mitre:
+  tactic: Command and Control
+  technique_id: T1071.003
+  technique_name: Mail Protocols
+detection:
+  network_port_in:
+    - 6666
+    - 6667
+    - 6668
+    - 6669
+    - 6697

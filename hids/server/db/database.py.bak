@@ -1,0 +1,42 @@
+# server/db/database.py
+# Database initialization
+# Currently uses in-memory stores for quick setup.
+# Uncomment PostgreSQL block below when ready for production persistence.
+
+import logging
+import os
+
+log = logging.getLogger("sentinel.db")
+
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+asyncpg://sentinel:changeme@localhost:5432/sentinel"
+)
+
+
+async def init_db():
+    """Initialize database connection and create tables."""
+    log.info("Initializing database...")
+
+    # ── Option 1: In-memory (default — works immediately, data lost on restart) ──
+    log.info("Using in-memory storage (data resets on restart)")
+    log.info("To persist data: set DATABASE_URL env var and uncomment PostgreSQL block below")
+
+    # ── Option 2: PostgreSQL (uncomment when DB is ready) ──────────────────────
+    # from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+    # from sqlalchemy.orm import sessionmaker
+    # from db.models import Base
+    #
+    # engine = create_async_engine(DATABASE_URL, echo=False, pool_size=10)
+    # async with engine.begin() as conn:
+    #     await conn.run_sync(Base.metadata.create_all)
+    # log.info(f"PostgreSQL connected: {DATABASE_URL}")
+
+
+async def get_db():
+    """Dependency — yields database session. Used by routers."""
+    # Placeholder — yields None for in-memory mode
+    yield None
+    # PostgreSQL version:
+    # async with AsyncSession(engine) as session:
+    #     yield session

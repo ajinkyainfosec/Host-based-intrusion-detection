@@ -1,0 +1,38 @@
+[package]
+name = "sentinel-agent"
+version = "1.0.0"
+edition = "2021"
+authors = ["Sentinel HIDS"]
+description = "Lightweight host-based intrusion detection agent for Linux"
+
+[[bin]]
+name = "sentinel-agent"
+path = "src/main.rs"
+
+[dependencies]
+tokio          = { version = "1", features = ["full"] }
+serde          = { version = "1", features = ["derive"] }
+serde_json     = "1"
+reqwest        = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
+sha2           = "0.10"
+hex            = "0.4"
+inotify        = "0.10"
+procfs         = "0.16"
+chrono         = { version = "0.4", features = ["serde"] }
+uuid           = { version = "1", features = ["v4"] }
+tracing        = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+config         = "0.13"
+anyhow         = "1"
+tokio-stream   = "0.1"
+futures        = "0.3"
+glob           = "0.3"
+nix            = { version = "0.27", features = ["fs", "process", "signal"] }
+regex          = "1"
+
+[profile.release]
+opt-level     = 3
+lto           = true
+codegen-units = 1
+strip         = true
+panic         = "abort"
