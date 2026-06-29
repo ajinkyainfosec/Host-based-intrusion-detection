@@ -14,6 +14,7 @@ pub async fn run(mut rx: Receiver<Event>, cfg: Arc<AgentConfig>) -> Result<()> {
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
+        .http1_only()
         .build()?;
 
     let events_endpoint    = format!("{}/api/v1/events", cfg.server_url);

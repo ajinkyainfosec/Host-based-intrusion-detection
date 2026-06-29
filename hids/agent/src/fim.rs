@@ -58,10 +58,14 @@ async fn inotify_watcher(tx: Sender<Event>, cfg: Arc<AgentConfig>, baseline: Arc
                     }
                 }
             }
-            Err(e) => {
-                warn!("inotify read error: {}", e);
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
+            Err(e) if e.raw_os_error() == Some(11) => {
+    // EAGAIN — no events available yet, not a real error
+    tokio::time::sleep(Duration::from_millis(150)).await;
+}
+Err(e) => {
+    warn!("inotify read error: {}", e);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+}
         }
         tokio::time::sleep(Duration::from_millis(50)).await;
     }

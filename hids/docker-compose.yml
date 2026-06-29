@@ -128,10 +128,10 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./docker/nginx/sentinel.conf:/etc/nginx/conf.d/sentinel.conf:ro
-      - ./certs:/etc/nginx/certs:ro
-      - ./dashboard:/usr/share/nginx/html:ro
+      - /opt/hids/docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro          # ✅ absolute path
+      - /opt/hids/docker/nginx/sentinel.conf:/etc/nginx/conf.d/sentinel.conf:ro  # ✅ absolute path
+      - /opt/hids/certs:/opt/hids/certs:ro
+      - /opt/hids/dashboard:/opt/hids/dashboard:ro
     depends_on:
       - server
     networks:

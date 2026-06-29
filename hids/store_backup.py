@@ -63,38 +63,44 @@ async def save_alert(alert: dict) -> None:
         return
     try:
         from sqlalchemy import text
-
-        # Serialize tags to list
-        tags = alert.get("tags", [])
-        if isinstance(tags, str):
-            tags = [tags]
-        if not isinstance(tags, list):
-            tags = []
-
         async with AsyncSessionLocal() as session:
             await session.execute(text("""
                 INSERT INTO alerts (
-                    alert_id, agent_id, rule_id, rule_title,
-                    hostname, severity, score, status, reason,
-                    mitre_id, mitre_tactic, mitre_name,
-                    event_subtype, event_data, assigned_to,
-                    tags, incident_id, created_at
+                    alert_id,
+                    rule_id,
+                    rule_title,
+                    hostname,
+                    severity,
+                    score,
+                    status,
+                    reason,
+                    mitre_id,
+                    mitre_tactic,
+                    event_subtype,
+                    event_data,
+                    assigned_to,
+                    created_at
                 ) VALUES (
-                    :alert_id, :agent_id, :rule_id, :rule_title,
-                    :hostname, :severity, :score, :status, :reason,
-                    :mitre_id, :mitre_tactic, :mitre_name,
-                    :event_subtype, :event_data ::jsonb, :assigned_to,
-                    :tags, :incident_id, :created_at
+                    :alert_id,
+                    :rule_id,
+                    :rule_title,
+                    :hostname,
+                    :severity,
+                    :score,
+                    :status,
+                    :reason,
+                    :mitre_id,
+                    :mitre_tactic,
+                    :event_subtype,
+                    :event_data ::jsonb,
+                    :assigned_to,
+                    :created_at
                 )
                 ON CONFLICT (alert_id) DO UPDATE SET
                     status      = EXCLUDED.status,
-                    assigned_to = EXCLUDED.assigned_to,
-                    mitre_name  = EXCLUDED.mitre_name,
-                    tags        = EXCLUDED.tags,
-                    incident_id = EXCLUDED.incident_id
+                    assigned_to = EXCLUDED.assigned_to
             """), {
                 "alert_id":     str(alert.get("alert_id")     or uuid.uuid4()),
-                "agent_id":     str(alert.get("agent_id")     or ""),
                 "rule_id":      str(alert.get("rule_id")      or ""),
                 "rule_title":   str(alert.get("rule_title")   or ""),
                 "hostname":     str(alert.get("hostname")     or ""),
@@ -104,13 +110,10 @@ async def save_alert(alert: dict) -> None:
                 "reason":       str(alert.get("reason")       or ""),
                 "mitre_id":     str(alert.get("mitre_id")     or ""),
                 "mitre_tactic": str(alert.get("mitre_tactic") or ""),
-                "mitre_name":   str(alert.get("mitre_name")   or ""),
                 "event_subtype":str(alert.get("event_subtype")or ""),
                 "event_data":   _safe_json(alert.get("event_data")),
                 "assigned_to":  str(alert.get("assigned_to")  or ""),
-                "tags":         tags,
-                "incident_id":  str(alert.get("incident_id")  or ""),
-                "created_at":   _parse_ts(alert.get("timestamp") or alert.get("created_at")),
+                "created_at":   _parse_ts(alert.get("timestamp")),
             })
             await session.commit()
             log.info(
@@ -145,15 +148,10 @@ async def load_alerts(limit: int = 200, severity: str = None,
 
         async with AsyncSessionLocal() as session:
             rows = await session.execute(text(f"""
-                SELECT
-                    alert_id, agent_id, rule_id, rule_title,
-                    hostname, severity, score, status, reason,
-                    mitre_id, mitre_tactic, mitre_name,
-                    event_subtype, event_data, assigned_to,
-                    tags, incident_id,
-                    acknowledged_at, acknowledged_by,
-                    closed_at, closed_by,
-                    updated_at, created_at
+                SELECT alert_id, rule_id, rule_title, hostname, severity,
+                       score, status, reason, mitre_id, mitre_tactic,
+                       event_subtype, event_data, assigned_to,
+                       acknowledged_at, created_at
                 FROM alerts
                 {where}
                 ORDER BY created_at DESC
@@ -163,14 +161,7 @@ async def load_alerts(limit: int = 200, severity: str = None,
             result = []
             for row in rows.fetchall():
                 d = dict(zip(cols, row))
-                # Always set timestamp field for dashboard compatibility
                 d["timestamp"] = str(d.get("created_at", ""))
-                # Parse event_data if it's a string
-                if isinstance(d.get("event_data"), str):
-                    try:
-                        d["event_data"] = json.loads(d["event_data"])
-                    except Exception:
-                        d["event_data"] = {}
                 result.append(d)
             return result
     except Exception as e:
@@ -185,32 +176,19 @@ async def update_alert_status(alert_id: str, status: str,
         return False
     try:
         from sqlalchemy import text
-        sets   = ["status = :status", "updated_at = :updated_at"]
-        params = {
-            "status":     status,
-            "alert_id":   alert_id,
-            "updated_at": _now(),
-        }
+        sets   = ["status = :status"]
+        params = {"status": status, "alert_id": alert_id}
         if extra:
             for k, v in extra.items():
-                # FIX: convert ISO string timestamps to datetime objects
-                # PostgreSQL requires datetime objects not strings
-                if k.endswith('_at'):
-                    v = _parse_ts(v)
                 sets.append(f"{k} = :{k}")
                 params[k] = v
         async with AsyncSessionLocal() as session:
-            result = await session.execute(text(f"""
+            await session.execute(text(f"""
                 UPDATE alerts
                 SET {', '.join(sets)}
                 WHERE alert_id = :alert_id
             """), params)
             await session.commit()
-            rows_updated = result.rowcount
-            if rows_updated == 0:
-                log.warning(f"update_alert_status: no rows updated for {alert_id}")
-                return False
-            log.info(f"update_alert_status OK: {alert_id} → {status}")
         return True
     except Exception as e:
         log.error(f"update_alert_status FAILED: {e}")
@@ -224,13 +202,7 @@ async def save_event(event: dict) -> None:
         return
     try:
         from sqlalchemy import text
-        # Support both old "data" key and new "event_data" key
-        data = event.get("event_data") or event.get("data") or {}
-        event_type = (
-            event.get("event_type")
-            or (data.get("type") if isinstance(data, dict) else None)
-            or "unknown"
-        )
+        data = event.get("data", {})
         async with AsyncSessionLocal() as session:
             await session.execute(text("""
                 INSERT INTO events (
@@ -256,7 +228,7 @@ async def save_event(event: dict) -> None:
                 "agent_id":   str(event.get("agent_id")  or ""),
                 "hostname":   str(event.get("hostname")  or ""),
                 "severity":   str(event.get("severity")  or "INFO"),
-                "event_type": str(event_type),
+                "event_type": str(data.get("type")       or "unknown"),
                 "event_data": _safe_json(data),
                 "timestamp":  _parse_ts(event.get("timestamp")),
             })

@@ -21,6 +21,7 @@ mitre:
 detection:
   cmdline_contains:
     - "bash -i"
+    - "bash -i >& /dev/tcp"
     - "sh -i"
     - "/dev/tcp/"
     - "/dev/udp/"
@@ -217,7 +218,7 @@ detection:
     - "base64 -d"
     - "base64 --decode"
     - "echo * | base64"
-    - "|base64"
+    - "| base64"
     - "eval $(echo"
     - "eval `echo"
 ---
@@ -329,6 +330,12 @@ detection:
     - "/var/www/html/.aspx"
     - "/usr/share/nginx/html/"
     - "/srv/www/"
+  file_extension_in:
+    - ".php"
+    - ".jsp"
+    - ".aspx"
+    - ".phtml"
+    - ".php5"
 ---
 # ── RULE 15: Systemd Persistence ─────────────────────────────
 title: Persistence — Malicious Systemd Service Created

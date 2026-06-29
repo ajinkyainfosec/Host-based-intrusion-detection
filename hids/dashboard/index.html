@@ -448,6 +448,33 @@ input:checked+.s-slider::before{transform:translateX(15px);background:var(--gree
 .ep-row:last-child{border-bottom:none}
 .ep-key{color:var(--text2)}.ep-val{color:var(--text)}
 
+
+/* ===== MULTI-HOST ===== */
+.host-status-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.host-pill{display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;transition:all .15s;font-family:var(--mono);font-size:9px}
+.host-pill:hover{border-color:var(--border2)}
+.host-pill.active{border-color:var(--green);background:var(--gd)}
+.host-pill.offline{border-color:rgba(255,62,94,.3);background:var(--rd)}
+.host-pill.degraded{border-color:rgba(255,176,32,.3);background:var(--ad)}
+.host-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.host-pill.online .host-dot{background:var(--green);box-shadow:0 0 4px var(--green)}
+.host-pill.offline .host-dot{background:var(--red)}
+.host-pill.degraded .host-dot{background:var(--amber)}
+.host-alerts-count{background:var(--rd);color:var(--red);padding:1px 4px;border-radius:2px;font-size:8px}
+.mh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:12px}
+.mh-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
+.mh-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px}
+.mh-card.online::before{background:var(--green)}
+.mh-card.degraded::before{background:var(--amber)}
+.mh-card.offline::before{background:var(--red)}
+.mh-card:hover{border-color:var(--border2)}
+.mh-card.selected{border-color:var(--green);background:rgba(0,220,150,.06)}
+.mh-hostname{font-family:var(--display);font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px}
+.mh-ip{font-family:var(--mono);font-size:9px;color:var(--text2);margin-bottom:6px}
+.mh-stats{display:flex;gap:8px;font-family:var(--mono);font-size:9px;color:var(--text2)}
+.mh-stat span{color:var(--text)}
+.mh-alerts{position:absolute;top:8px;right:8px;background:var(--rd);color:var(--red);font-family:var(--mono);font-size:9px;padding:2px 5px;border-radius:2px}
+
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:var(--bg2)}
 ::-webkit-scrollbar-thumb{background:rgba(0,220,150,.2);border-radius:2px}
@@ -537,7 +564,10 @@ input:checked+.s-slider::before{transform:translateX(15px);background:var(--gree
     <div class="live-dot" id="wsDot"></div>
     <div class="live-txt" id="wsLabel">OFFLINE</div>
     <span class="live-txt">|</span>
-    <select class="host-sel" id="hostSel" onchange="filterHost(this.value)"><option value="">ALL HOSTS</option></select>
+    <select class="host-sel" id="hostSel" onchange="filterHost(this.value)">
+      <option value="">ALL HOSTS</option>
+    </select>
+    <div class="live-txt" id="hostAlertBadge" style="display:none;background:var(--rd);color:var(--red);font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;border:1px solid rgba(255,62,94,.3)"></div>
     <div class="live-txt">Events: <span id="evCtr" style="color:var(--green);font-weight:700">0</span></div>
   </div>
   <div class="tb-right">
@@ -579,6 +609,8 @@ input:checked+.s-slider::before{transform:translateX(15px);background:var(--gree
 
 <!-- ══ OVERVIEW ══ -->
 <div class="page active" id="page-overview">
+  <!-- Multi-host status bar -->
+  <div class="host-status-bar" id="hostStatusBar" style="display:none"></div>
   <div class="g5">
     <div class="metric m-red"><div class="m-lbl">ACTIVE THREATS</div><div class="m-val" id="mv-t">—</div><div class="m-sub">Critical severity</div><div class="m-spark" id="sp-t"></div></div>
     <div class="metric m-amber"><div class="m-lbl">HIGH ALERTS</div><div class="m-val" id="mv-h">—</div><div class="m-sub">Needs review</div><div class="m-spark" id="sp-h"></div></div>
@@ -1225,6 +1257,8 @@ async function initDashboard() {
   setInterval(()=>{ loadStats(); loadAgents(); updateMTTD(); }, 30000);
   // Refresh historical data for other tabs every 30s but NOT the live feed
   setInterval(loadAlertsHistorical, 30000);
+  // Build multi-host UI after agents load
+  setTimeout(buildMultiHostOverview, 1000);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1386,14 +1420,11 @@ async function loadAlerts() {
 
 async function loadAgents() {
   const data = await api('/api/v1/agents');
-  if (data?.agents) {
+  if (data?.agents?.length) {
     allAgents = data.agents;
     renderAgents();
-    buildMultiHostOverview();
   } else if (!isConnected && allAgents.length===0) {
-    allAgents = simAgents;
-    renderAgents();
-    buildMultiHostOverview();
+    allAgents = simAgents; renderAgents();
   }
 }
 
@@ -1723,7 +1754,7 @@ function openDrawer(idx, feedId) {
 }
 
 async function closeAlertApi(id) {
-  await api('/api/v1/alerts/'+id+'/close',{method:'PATCH'});
+  await api('/api/v1/alerts/'+id+'/closed',{method:'PATCH'});
   toast('Alert closed'); closeDrawer(); loadAlerts();
 }
 function closeDrawer() { document.getElementById('alertDrawer').classList.remove('open'); }
@@ -1816,6 +1847,8 @@ function renderAgents() {
       <div class="agent-hb">♥ ${timeAgo(a.last_seen)}</div>
     </div>`;
   }).join('');
+  // Update multi-host UI after agents render
+  if (typeof buildMultiHostOverview === 'function') buildMultiHostOverview();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2340,11 +2373,7 @@ function showPg(el) {
   if(actions[el.dataset.pg]) actions[el.dataset.pg]();
 }
 
-function filterHost(h) {
-  const filtered=h?allAlerts.filter(a=>a.hostname===h):allAlerts;
-  renderAlertFeed(filtered,'alertFeed',20);
-  if(h) toast('Filtered: '+h,'var(--blue)');
-}
+// filterHost moved to multi-host section above
 
 // ═══════════════════════════════════════════════════════════
 // KEYBOARD SHORTCUTS
@@ -2738,6 +2767,143 @@ function exportCSV(){
   toast('CSV exported — '+allAlerts.length+' alerts','var(--blue)');
 }
 
+
+// ═══════════════════════════════════════════════════════════
+// MULTI-HOST MANAGEMENT
+// ═══════════════════════════════════════════════════════════
+let selectedHost = '';   // '' = all hosts
+let hostAlertCounts = {}; // { hostname: count }
+
+function filterHost(hostname) {
+  selectedHost = hostname;
+
+  // Update host selector dropdown
+  const sel = document.getElementById('hostSel');
+  if (sel) sel.value = hostname;
+
+  // Update host alert badge in topbar
+  const badge = document.getElementById('hostAlertBadge');
+  if (badge) {
+    if (hostname) {
+      const count = hostAlertCounts[hostname] || 0;
+      badge.textContent = hostname + ' — ' + count + ' alert' + (count!==1?'s':'');
+      badge.style.display = 'block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  // Update host pills in status bar
+  document.querySelectorAll('.host-pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.host === hostname);
+  });
+
+  // Filter alert feed
+  const filtered = hostname
+    ? allAlerts.filter(a => a.hostname === hostname)
+    : allAlerts;
+  renderAlertFeed(filtered, 'alertFeed', 20);
+
+  // Rebuild MITRE/Timeline/Kanban for selected host
+  buildMitre();
+  buildTimeline();
+  buildKanban();
+
+  if (hostname) toast('Filtered: ' + hostname, 'var(--blue)');
+  else          toast('Showing all hosts', 'var(--green)');
+}
+
+function buildHostStatusBar() {
+  const bar = document.getElementById('hostStatusBar');
+  if (!bar || allAgents.length === 0) {
+    if (bar) bar.style.display = 'none';
+    return;
+  }
+
+  // Only show if more than 1 host
+  if (allAgents.length <= 1) {
+    bar.style.display = 'none';
+    return;
+  }
+
+  bar.style.display = 'flex';
+
+  // Count open alerts per host
+  hostAlertCounts = {};
+  allAlerts.filter(a => a.status === 'new').forEach(a => {
+    if (a.hostname) hostAlertCounts[a.hostname] = (hostAlertCounts[a.hostname]||0) + 1;
+  });
+
+  // Build pills
+  const allPill = `<div class="host-pill ${selectedHost===''?'active':''}"
+    data-host="" onclick="filterHost('')">
+    <div class="host-dot" style="background:var(--green)"></div>
+    ALL HOSTS (${allAgents.length})
+  </div>`;
+
+  const agentPills = allAgents.map(a => {
+    const status = a.status || 'offline';
+    const count  = hostAlertCounts[a.hostname] || 0;
+    const alerts = count > 0
+      ? `<span class="host-alerts-count">${count}</span>`
+      : '';
+    return `<div class="host-pill ${status} ${selectedHost===a.hostname?'active':''}"
+      data-host="${esc(a.hostname)}"
+      onclick="filterHost('${esc(a.hostname)}')"
+      title="${esc(a.hostname)} — ${status} — CPU: ${(a.cpu_pct||0).toFixed(1)}%">
+      <div class="host-dot"></div>
+      ${esc(a.hostname)}
+      ${alerts}
+    </div>`;
+  }).join('');
+
+  bar.innerHTML = allPill + agentPills;
+}
+
+function buildMultiHostOverview() {
+  // Update host selector dropdown
+  const sel = document.getElementById('hostSel');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">ALL HOSTS</option>';
+  allAgents.forEach(a => {
+    const o = document.createElement('option');
+    o.value       = a.hostname;
+    o.textContent = a.hostname + ' (' + (a.status||'offline') + ')';
+    if (a.hostname === cur) o.selected = true;
+    sel.appendChild(o);
+  });
+
+  buildHostStatusBar();
+}
+
+// buildMultiHostOverview is called directly from renderAgents body below
+// (override pattern removed to avoid hoisting issues)
+
+// Get alerts for current host filter
+function getFilteredAlerts() {
+  return selectedHost
+    ? allAlerts.filter(a => a.hostname === selectedHost)
+    : allAlerts;
+}
+
+// Per-host alert summary for agents tab
+function getHostSummary() {
+  const summary = {};
+  allAgents.forEach(a => {
+    summary[a.hostname] = {
+      hostname:    a.hostname,
+      status:      a.status,
+      cpu_pct:     a.cpu_pct || 0,
+      mem_pct:     a.mem_pct || 0,
+      total_alerts: allAlerts.filter(x => x.hostname === a.hostname).length,
+      open_alerts:  allAlerts.filter(x => x.hostname === a.hostname && x.status === 'new').length,
+      critical:     allAlerts.filter(x => x.hostname === a.hostname && x.severity === 'CRITICAL').length,
+      last_seen:    a.last_seen,
+    };
+  });
+  return Object.values(summary);
+}
 </script>
 </body>
 </html>

@@ -6,7 +6,7 @@
 # PATCH  /api/v1/alerts/{id}/acknowledge
 # PATCH  /api/v1/alerts/{id}/investigating
 # PATCH  /api/v1/alerts/{id}/contained
-# PATCH  /api/v1/alerts/{id}/close
+# PATCH  /api/v1/alerts/{id}/closed
 # POST   /api/v1/alerts/{id}/assign
 
 import logging
@@ -246,7 +246,7 @@ async def investigating(alert_id: str, req: Request):
 async def contained(alert_id: str, req: Request):
     return await _set_status(alert_id, "contained", req)
 
-@router.patch("/{alert_id}/close")
+@router.patch("/{alert_id}/closed")
 async def close(alert_id: str, req: Request):
     return await _set_status(
         alert_id, "closed", req,
